@@ -15,6 +15,7 @@ Toàn bộ tài liệu thiết kế, kiến trúc và kế hoạch phát triển
 | 7 | [`07-dashboard-design.md`](07-dashboard-design.md) | Thiết kế Dashboard (màn hình, luồng UX, component tree) |
 | 8 | [`08-security.md`](08-security.md) | Bảo mật: xác thực, mã hóa, rate limit, phòng chống lạm dụng |
 | 9 | [`09-roadmap.md`](09-roadmap.md) | Roadmap MVP → v1.0, theo từng phase |
+| 10 | [`10-deployment-guide.md`](10-deployment-guide.md) | **Hướng dẫn triển khai từng bước: máy nhà + máy công ty** |
 
 ## Trạng thái
 

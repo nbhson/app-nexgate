@@ -73,7 +73,8 @@ app-nexGate/
 │   ├── 06-database-schema.md #   Schema DB
 │   ├── 07-dashboard-design.md#   Thiết kế Dashboard
 │   ├── 08-security.md        #   Bảo mật
-│   └── 09-roadmap.md         #   Roadmap phát triển
+│   ├── 09-roadmap.md         #   Roadmap phát triển
+│   └── 10-deployment-guide.md#   TRIỂN KHAI từng bước (máy nhà + máy công ty)
 ├── src/                      # Backend (Node + TypeScript + Hono + Drizzle/SQLite)
 │   ├── index.ts              # entrypoint
 │   ├── app.ts                # Hono app: /v1/* + /admin/* + SPA
