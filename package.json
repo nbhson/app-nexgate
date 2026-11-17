@@ -1,0 +1,50 @@
+{
+  "name": "nexgate",
+  "version": "1.0.0",
+  "description": "NexGate - OpenAI-compatible API Gateway",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "dashboard"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:all": "concurrently -n api,dash -c cyan,green \"npm run dev\" \"npm --prefix dashboard run dev\"",
+    "build": "tsc -p tsconfig.json && npm --prefix dashboard run build",
+    "start": "node dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:rekey": "tsx scripts/rekey.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "tunnel": "cloudflared tunnel --url http://127.0.0.1:3000"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.1",
+    "better-sqlite3": "^11.4.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.33.0",
+    "hono": "^4.6.0",
+    "nanoid": "^5.0.7",
+    "pino": "^9.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.5.0",
+    "@types/supertest": "^6.0.2",
+    "concurrently": "^9.0.0",
+    "drizzle-kit": "^0.24.2",
+    "eslint": "^9.9.0",
+    "prettier": "^3.3.3",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.0"
+  }
+}
