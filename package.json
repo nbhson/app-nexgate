@@ -20,7 +20,7 @@
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "tunnel": "cloudflared tunnel --url http://127.0.0.1:3000"
+    "tunnel": "tsx scripts/tunnel.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.1",

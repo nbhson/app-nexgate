@@ -134,8 +134,8 @@ Máy nhà thường **không có IP tĩnh / sau NAT** ⇒ máy công ty chưa th
 # cài cloudflared (macOS)
 brew install cloudflared
 
-# chạy tunnel trỏ về server
-cloudflared tunnel --url http://127.0.0.1:3000
+# chạy tunnel — tự đọc PORT từ .env (không hardcode 3000)
+npm run tunnel
 ```
 
 Bạn sẽ nhận link dạng `https://xxx-random.trycloudflare.com`. Dùng link đó về sau.
@@ -173,7 +173,9 @@ https://nexgate.yourdomain.com
 
 ### A.7 Cấu hình qua Dashboard
 
-Mở `https://nexgate.yourdomain.com/admin` (hoặc khi test: `http://127.0.0.1:3000/admin`), đăng nhập bằng `ADMIN_USERNAME` + mật khẩu đã chọn.
+Mở `https://nexgate.yourdomain.com/` (hoặc khi test: `http://127.0.0.1:<PORT>/`) — đăng nhập bằng `ADMIN_USERNAME` + mật khẩu đã chọn.
+
+> Dashboard SPA nằm ở root `/`. Đường dẫn `/admin/*` là namespace của **Admin API** (`/admin/auth`, `/admin/models`...); truy cập `/admin` sẽ tự chuyển về `/`.
 
 Tại Dashboard:
 

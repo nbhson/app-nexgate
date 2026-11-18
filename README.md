@@ -46,7 +46,7 @@ npm run dev
 npm run build && npm start
 ```
 
-Gateway lắng nghe tại `http://localhost:3000`, Dashboard tại `/admin`, API `/v1` tương thích OpenAI. Ngoài ra có thể quản lý provider/key/model trực tiếp qua Dashboard thay vì sửa `.env`.
+Gateway lắng nghe tại `http://localhost:3000`, Dashboard tại `/` (đường dẫn cũ `/admin` sẽ tự chuyển về `/`; `/admin/*` là namespace của Admin API), API `/v1` tương thích OpenAI. Ngoài ra có thể quản lý provider/key/model trực tiếp qua Dashboard thay vì sửa `.env`.
 
 ## Config phía máy khách (client)
 
