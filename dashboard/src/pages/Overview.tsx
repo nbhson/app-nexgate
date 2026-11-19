@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { AlertCircle, Plus } from "lucide-react";
 import { api, type TodayStats, type TimeSeriesPoint, type UsageLog, type ModelUsageStats } from "../api/client";
-import { Card, Badge, Button, EmptyState, TableSkeleton } from "../components/ui";
+import { Card, Badge, Button, EmptyState, TableSkeleton, PageHeader } from "../components/ui";
 import { errorMessage, formatDate } from "../lib/utils";
 
 export function Overview() {
@@ -36,18 +37,22 @@ export function Overview() {
 
   return (
     <div className="anim-page space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Overview</h1>
-          <p className="text-sm text-slate-400">Tổng quan hoạt động gateway hôm nay</p>
-        </div>
+      <PageHeader title="Overview" description="Tổng quan hoạt động gateway hôm nay">
         <Link to="/keys">
-          <Button>+ Tạo API key</Button>
+          <Button>
+            <Plus size={16} aria-hidden /> Tạo API key
+          </Button>
         </Link>
-      </div>
+      </PageHeader>
 
       {error && (
-        <p className="rounded-lg border border-red-800 bg-red-950 px-4 py-3 text-sm text-red-200">{error}</p>
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-red-500/35 bg-red-500/12 px-4 py-3 text-sm text-red-300"
+        >
+          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
+          {error}
+        </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -140,12 +145,12 @@ export function Overview() {
 
 function Stat({ label, value, loading }: { label: string; value: string; loading: boolean }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-      <p className="text-sm text-slate-400">{label}</p>
+    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow-card sm:p-5">
+      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">{label}</p>
       {loading ? (
-        <div className="skeleton mt-2 h-7 w-20" />
+        <div className="skeleton mt-2.5 h-7 w-20" />
       ) : (
-        <p className="mt-1 text-2xl font-semibold">{value}</p>
+        <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-slate-100">{value}</p>
       )}
     </div>
   );

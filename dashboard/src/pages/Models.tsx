@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { Boxes, Plus } from "lucide-react";
 import { api, type Model, type Provider } from "../api/client";
 import {
-  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton,
+  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton, PageHeader,
 } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { errorMessage } from "../lib/utils";
@@ -122,13 +123,11 @@ export function Models() {
 
   return (
     <div className="anim-page space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Models</h1>
-          <p className="text-sm text-slate-400">Catalog model expose cho client</p>
-        </div>
-        <Button onClick={openCreate}>+ Thêm model</Button>
-      </div>
+      <PageHeader title="Models" description="Catalog model expose cho client — kèm giới hạn & giá token">
+        <Button onClick={openCreate}>
+          <Plus size={16} aria-hidden /> Thêm model
+        </Button>
+      </PageHeader>
 
       {editing && (
         <Modal title={editing === "new" ? "Thêm model" : `Sửa model — ${editing}`} onClose={() => setEditing(null)}>
@@ -194,7 +193,12 @@ export function Models() {
         {loading ? (
           <TableSkeleton rows={5} cols={4} />
         ) : models.length === 0 ? (
-          <EmptyState title="Chưa có model nào" hint="Thêm model để client có thể dùng" action={<Button onClick={openCreate}>+ Thêm model</Button>} />
+          <EmptyState
+            title="Chưa có model nào"
+            hint="Thêm model để client có thể dùng"
+            icon={<Boxes size={18} aria-hidden />}
+            action={<Button onClick={openCreate}><Plus size={16} aria-hidden /> Thêm model</Button>}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -228,10 +232,10 @@ export function Models() {
                       <Badge tone={m.enabled ? "green" : "slate"}>{m.enabled ? "Bật" : "Tắt"}</Badge>
                     </td>
                     <td className="py-3">
-                      <div className="flex gap-2 whitespace-nowrap">
-                        <Button variant="ghost" onClick={() => openEdit(m)}>Sửa</Button>
-                        <Button variant="ghost" onClick={() => onToggle(m)}>{m.enabled ? "Tắt" : "Bật"}</Button>
-                        <Button variant="danger" onClick={() => onDelete(m)}>Xoá</Button>
+                      <div className="flex gap-1.5 whitespace-nowrap">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Sửa</Button>
+                        <Button variant="ghost" size="sm" onClick={() => onToggle(m)}>{m.enabled ? "Tắt" : "Bật"}</Button>
+                        <Button variant="danger" size="sm" onClick={() => onDelete(m)}>Xoá</Button>
                       </div>
                     </td>
                   </tr>

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Check, Copy, KeyRound, Plus } from "lucide-react";
 import {
   api, parseWhitelist,
   type ApiKeyRecord, type Model, type Provider,
 } from "../api/client";
 import {
   Card, Button, Badge, Field, inputCls, EmptyState,
-  Modal, useConfirm, ProgressBar, TableSkeleton,
+  Modal, useConfirm, ProgressBar, TableSkeleton, PageHeader,
 } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { errorMessage, formatDate } from "../lib/utils";
@@ -179,12 +180,14 @@ export function ApiKeys() {
     if (wl.length === 0 && pw.length === 0) return <Badge tone="slate">Mọi model</Badge>;
     const providerNames = pw.map((id) => providers.find((p) => p.id === id)?.name ?? id);
     return (
-      <div className="flex flex-wrap gap-1 max-w-xs">
+      <div className="flex max-w-xs flex-wrap gap-1">
         {providerNames.map((n) => (
-          <Badge key={`p-${n}`} tone="green">✓ {n} (cả provider)</Badge>
+          <Badge key={`p-${n}`} tone="green">
+            <Check size={11} strokeWidth={2.5} aria-hidden /> {n} (cả provider)
+          </Badge>
         ))}
         {wl.map((m) => (
-          <Badge key={`m-${m}`} tone="amber">{m}</Badge>
+          <Badge key={`m-${m}`} tone="brand">{m}</Badge>
         ))}
       </div>
     );
@@ -192,20 +195,27 @@ export function ApiKeys() {
 
   return (
     <div className="anim-page space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">API Keys</h1>
-          <p className="text-sm text-slate-400">Khoá API cấp cho máy client — kèm quyền model &amp; provider</p>
-        </div>
-        <Button onClick={openCreate}>+ Tạo key</Button>
-      </div>
+      <PageHeader
+        title="API Keys"
+        description="Khoá API cấp cho máy client — kèm quyền model & provider"
+      >
+        <Button onClick={openCreate}>
+          <Plus size={16} aria-hidden /> Tạo key
+        </Button>
+      </PageHeader>
 
       {/* Key reveal modal */}
       {revealedKey && (
         <Modal title="Key mới — chỉ hiển thị MỘT LẦN DUY NHẤT" onClose={() => setRevealedKey(null)}>
-          <p className="mb-3 text-sm text-amber-300">⚠ Lưu lại ngay bây giờ. Hệ thống chỉ lưu băm, không xem lại được.</p>
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/12 px-3 py-2.5 text-sm text-amber-300"
+          >
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" aria-hidden />
+            <span>Lưu lại ngay bây giờ. Hệ thống chỉ lưu băm, không xem lại được.</span>
+          </div>
           <div className="flex items-center gap-2">
-            <code className="flex-1 break-all rounded-md bg-slate-950 px-3 py-2 font-mono text-sm text-brand-300">
+            <code className="flex-1 break-all rounded-md border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-sm text-brand-300">
               {revealedKey}
             </code>
             <Button
@@ -216,7 +226,7 @@ export function ApiKeys() {
                 )
               }
             >
-              Copy
+              <Copy size={14} aria-hidden /> Copy
             </Button>
           </div>
         </Modal>
@@ -327,7 +337,12 @@ export function ApiKeys() {
         {loading ? (
           <TableSkeleton rows={4} cols={5} />
         ) : keys.length === 0 ? (
-          <EmptyState title="Chưa có key nào" hint="Tạo key đầu tiên để client kết nối" action={<Button onClick={openCreate}>+ Tạo key</Button>} />
+          <EmptyState
+            title="Chưa có key nào"
+            hint="Tạo key đầu tiên để client kết nối"
+            icon={<KeyRound size={18} aria-hidden />}
+            action={<Button onClick={openCreate}><Plus size={16} aria-hidden /> Tạo key</Button>}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -373,11 +388,11 @@ export function ApiKeys() {
                       <Badge tone={k.enabled ? "green" : "red"}>{k.enabled ? "Bật" : "Tắt"}</Badge>
                     </td>
                     <td className="py-3">
-                      <div className="flex gap-2 whitespace-nowrap">
-                        <Button variant="ghost" onClick={() => openEdit(k)}>Sửa</Button>
-                        <Button variant="ghost" onClick={() => onToggle(k)}>{k.enabled ? "Tắt" : "Bật"}</Button>
-                        <Button variant="secondary" onClick={() => onRotate(k.id)}>Rotate</Button>
-                        <Button variant="danger" onClick={() => onDelete(k)}>Xoá</Button>
+                      <div className="flex gap-1.5 whitespace-nowrap">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(k)}>Sửa</Button>
+                        <Button variant="ghost" size="sm" onClick={() => onToggle(k)}>{k.enabled ? "Tắt" : "Bật"}</Button>
+                        <Button variant="secondary" size="sm" onClick={() => onRotate(k.id)}>Rotate</Button>
+                        <Button variant="danger" size="sm" onClick={() => onDelete(k)}>Xoá</Button>
                       </div>
                     </td>
                   </tr>

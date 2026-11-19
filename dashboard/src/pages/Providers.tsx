@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { Plus, Server, Zap } from "lucide-react";
 import { api, type Provider } from "../api/client";
 import {
-  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton,
+  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton, PageHeader,
 } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { cn, errorMessage } from "../lib/utils";
@@ -115,13 +116,11 @@ export function Providers() {
 
   return (
     <div className="anim-page space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Providers</h1>
-          <p className="text-sm text-slate-400">Các upstream provider mà gateway kết nối tới</p>
-        </div>
-        <Button onClick={openCreate}>+ Thêm provider</Button>
-      </div>
+      <PageHeader title="Providers" description="Các upstream provider mà gateway kết nối tới">
+        <Button onClick={openCreate}>
+          <Plus size={16} aria-hidden /> Thêm provider
+        </Button>
+      </PageHeader>
 
       {editing && (
         <Modal title={editing === "new" ? "Thêm provider" : "Sửa provider"} onClose={() => setEditing(null)}>
@@ -160,7 +159,12 @@ export function Providers() {
         {loading ? (
           <TableSkeleton rows={3} cols={4} />
         ) : providers.length === 0 ? (
-          <EmptyState title="Chưa có provider nào" hint="Thêm provider đầu tiên để bắt đầu" action={<Button onClick={openCreate}>+ Thêm provider</Button>} />
+          <EmptyState
+            title="Chưa có provider nào"
+            hint="Thêm provider đầu tiên để bắt đầu"
+            icon={<Server size={18} aria-hidden />}
+            action={<Button onClick={openCreate}><Plus size={16} aria-hidden /> Thêm provider</Button>}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -193,13 +197,13 @@ export function Providers() {
                         <Badge tone={p.enabled ? "green" : "slate"}>{p.enabled ? "Bật" : "Tắt"}</Badge>
                       </td>
                       <td className="py-3">
-                        <div className="flex gap-2 whitespace-nowrap">
-                          <Button variant="ghost" onClick={() => onTest(p)} disabled={testing === p.id}>
-                            {testing === p.id ? "..." : "Test"}
+                        <div className="flex gap-1.5 whitespace-nowrap">
+                          <Button variant="ghost" size="sm" onClick={() => onTest(p)} disabled={testing === p.id}>
+                            {testing === p.id ? "..." : <><Zap size={13} aria-hidden /> Test</>}
                           </Button>
-                          <Button variant="ghost" onClick={() => openEdit(p)}>Sửa</Button>
-                          <Button variant="ghost" onClick={() => onToggle(p)}>{p.enabled ? "Tắt" : "Bật"}</Button>
-                          <Button variant="danger" onClick={() => onDelete(p)}>Xoá</Button>
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>Sửa</Button>
+                          <Button variant="ghost" size="sm" onClick={() => onToggle(p)}>{p.enabled ? "Tắt" : "Bật"}</Button>
+                          <Button variant="danger" size="sm" onClick={() => onDelete(p)}>Xoá</Button>
                         </div>
                       </td>
                     </tr>

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Activity, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   api,
   type ApiKeyRecord, type Model, type ModelUsageStats, type TimeSeriesPoint, type UsageLog,
 } from "../api/client";
-import { Card, Badge, EmptyState, inputCls, Button, TableSkeleton } from "../components/ui";
+import { Card, Badge, EmptyState, inputCls, Button, TableSkeleton, PageHeader } from "../components/ui";
 import { errorMessage, formatDate } from "../lib/utils";
 
 type Range = "24h" | "7d" | "30d";
@@ -74,27 +75,32 @@ export function Usage() {
 
   return (
     <div className="anim-page space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Usage</h1>
-          <p className="text-sm text-slate-400">Lượng token, request và chi phí đi qua gateway</p>
-        </div>
-        <div className="flex gap-1 rounded-md border border-slate-700 p-1">
+      <PageHeader title="Usage" description="Lượng token, request và chi phí đi qua gateway">
+        <div className="flex gap-1 rounded-lg border border-slate-800 bg-slate-900/70 p-1" role="group" aria-label="Khoảng thời gian">
           {(["24h", "7d", "30d"] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => { setRange(r); setPage(0); }}
-              className={`rounded px-3 py-1 text-sm transition-colors ${
-                range === r ? "bg-brand-500 text-white" : "text-slate-400 hover:text-slate-200"
+              aria-pressed={range === r}
+              className={`btn-press rounded-md px-3 py-1 text-sm transition-colors ${
+                range === r ? "bg-brand-600 font-medium text-white shadow-card" : "text-slate-400 hover:text-slate-200"
               }`}
             >
               {r}
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
 
-      {error && <p className="rounded-lg border border-red-800 bg-red-950 px-4 py-3 text-sm text-red-200">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-red-500/35 bg-red-500/12 px-4 py-3 text-sm text-red-300"
+        >
+          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
+          {error}
+        </p>
+      )}
 
       {/* Bộ lọc */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -141,6 +147,7 @@ export function Usage() {
           <EmptyState
             title="Chưa có request nào khớp bộ lọc"
             hint="Sau khi client gọi (kể cả streaming), usage sẽ hiển thị ở đây"
+            icon={<Activity size={18} aria-hidden />}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -224,8 +231,11 @@ export function Usage() {
                       <td className="py-2 pr-4 text-slate-400">
                         {l.inputTokens}/{l.outputTokens}
                         {l.errorCode === "usage_estimated" && (
-                          <span className="ml-1 text-[10px] text-slate-500" title="Upstream không trả usage — số liệu ước lượng theo ký tự">
-                            ˀ
+                          <span
+                            className="ml-1 text-[10px] text-slate-500"
+                            title="Upstream không trả usage — số liệu ước lượng theo ký tự"
+                          >
+                            ≈ est
                           </span>
                         )}
                       </td>
@@ -245,15 +255,16 @@ export function Usage() {
                 Trang {page + 1} / {Math.max(1, Math.ceil(logTotal / PAGE))}
               </span>
               <div className="flex gap-2">
-                <Button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                  ← Trước
+                <Button variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  <ChevronLeft size={14} aria-hidden /> Trước
                 </Button>
                 <Button
                   variant="secondary"
+                  size="sm"
                   disabled={(page + 1) * PAGE >= logTotal}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Sau →
+                  Sau <ChevronRight size={14} aria-hidden />
                 </Button>
               </div>
             </div>

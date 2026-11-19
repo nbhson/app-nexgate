@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { ClipboardList } from "lucide-react";
 import { api, type SettingItem, type AuditLogRecord } from "../api/client";
-import { Card, Button, Badge, inputCls, EmptyState, TableSkeleton } from "../components/ui";
+import { Card, Button, Badge, inputCls, EmptyState, TableSkeleton, PageHeader } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { errorMessage, formatDate } from "../lib/utils";
 
@@ -75,10 +76,7 @@ export function Settings() {
 
   return (
     <div className="anim-page space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="text-sm text-slate-400">Thông tin instance, cấu hình runtime &amp; nhật ký admin</p>
-      </div>
+      <PageHeader title="Settings" description="Thông tin instance, cấu hình runtime & nhật ký admin" />
 
       {loading ? (
         <TableSkeleton rows={4} cols={3} />
@@ -181,7 +179,11 @@ export function Settings() {
             {auditLoading ? (
               <TableSkeleton rows={4} cols={4} />
             ) : audit.length === 0 ? (
-              <EmptyState title="Chưa có nhật ký" hint="Mọi thao tác tạo/xoá/sửa sẽ được ghi lại tại đây" />
+              <EmptyState
+                title="Chưa có nhật ký"
+                hint="Mọi thao tác tạo/xoá/sửa sẽ được ghi lại tại đây"
+                icon={<ClipboardList size={18} aria-hidden />}
+              />
             ) : (
               <div className="max-h-80 overflow-auto">
                 <table className="w-full text-left text-sm">

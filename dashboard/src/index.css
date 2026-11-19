@@ -1,8 +1,10 @@
+@import "@fontsource-variable/inter";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Motion tokens (từ skill ui-animation — duration & easing + entrance/exit) ──
+/* ── Motion tokens (skill ui-animation — duration & easing + entrance/exit) ──
    Chuẩn bắt buộc: không dùng duration/curve tự phát ngoài các token này. */
 :root {
   --motion-duration-instant: 100ms; /* press/active, toggle */
@@ -22,12 +24,35 @@
   --motion-stagger-cap: 300ms;
 }
 
+/* ── Semantic color aliases (skill color-theory: product code nên tham chiếu
+   vai trò, không tham chiếu step thô). Ánh xạ vào ramp đã thiết kế ở
+   tailwind.config.ts — dùng qua class: bg-surface, text-ink-secondary... ── */
+:root {
+  --clr-page: #0c121e;        /* oklch ~0.13 — không bao giờ #000 */
+  --clr-surface: #151e2c;     /* elevation 1 — card */
+  --clr-surface-raised: #1a2434; /* elevation 2 — modal/popover */
+  --clr-border: #212b3c;
+  --clr-text-primary: #e8edf5;   /* oklch ~0.93, tránh halation */
+  --clr-text-secondary: #8b99b1; /* ≥4.5:1 trên surface */
+  --clr-brand: #3b54b8;
+  --clr-brand-accent: #97b0f5;
+}
+
 html {
   color-scheme: dark;
 }
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  @apply bg-slate-950 font-sans text-slate-100 antialiased;
+  /* ambient nhẹ phía trên phải — tinh tế, không phải aurora trang trí */
+  background:
+    radial-gradient(900px 600px at 85% -10%, rgba(74, 103, 223, 0.06), transparent 70%),
+    var(--clr-page);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(107, 134, 242, 0.35);
 }
 
 /* scrollbar tối giản */
@@ -36,10 +61,26 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-700 rounded;
+  @apply rounded bg-slate-700;
 }
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
+}
+
+/* ── Data table chuẩn enterprise (skill responsive-layout: data-tables) ──
+   - header sticky, 11px uppercase tracking rộng
+   - số dùng tabular figures, column identity có thể pin
+   - row height ~48px cho touch comfort */
+@layer base {
+  table thead th {
+    @apply whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500;
+  }
+  table tbody td {
+    font-variant-numeric: tabular-nums;
+  }
+  table tbody tr {
+    min-height: 44px;
+  }
 }
 
 /* ── Keyframes dùng token, không magic number ─────────────────────────────── */
@@ -125,15 +166,16 @@ body {
 /* Skeleton loading (>300ms wait) */
 .skeleton {
   border-radius: 0.375rem;
-  background: linear-gradient(90deg, #1e293b 25%, #293548 50%, #1e293b 75%);
+  background: linear-gradient(90deg, #1a2434 25%, #212b3c 50%, #1a2434 75%);
   background-size: 200% 100%;
-  animation: shimmer var(--motion-duration-loop) var(--motion-ease-linear) infinite;
+  animation: shimmer var(--motion-duration-loop) linear infinite;
 }
 
 /* Press feedback cho button */
 .btn-press {
   transition: transform var(--motion-duration-instant) var(--motion-ease-standard),
-    background-color var(--motion-duration-fast) var(--motion-ease-standard);
+    background-color var(--motion-duration-fast) var(--motion-ease-standard),
+    border-color var(--motion-duration-fast) var(--motion-ease-standard);
 }
 .btn-press:active:not(:disabled) {
   transform: scale(0.97);
@@ -150,7 +192,7 @@ body {
   }
   .skeleton {
     animation: none;
-    background: #1e293b;
+    background: #1a2434;
   }
   .btn-press:active:not(:disabled) {
     transform: none;

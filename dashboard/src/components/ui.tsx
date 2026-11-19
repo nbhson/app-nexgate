@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+
+/**
+ * Design system primitives — enterprise dark.
+ * Color: chỉ dùng alias/ramp đã thiết kế trong tailwind.config.ts
+ * (semantic badge theo recipe bg+border+text; destructive theo contract
+ * danger-filled + white; focus ring brand-400).
+ */
 
 export function Spinner({ label = "Đang tải..." }: { label?: string }) {
   return (
@@ -33,61 +41,129 @@ export function TableSkeleton({ rows = 4, cols = 4 }: { rows?: number; cols?: nu
   );
 }
 
-export function Card({ title, children, action }: { title?: string; children: ReactNode; action?: ReactNode }) {
+/* ── PageHeader — composition "page head": title + description + action
+   cluster. Mọi trang dùng chung một khuôn để tạo phân cấp nhất quán. ── */
+export function PageHeader({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children?: ReactNode;
+}) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60">
-      {(title || action) && (
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
-          {title && <h2 className="text-sm font-semibold text-slate-200">{title}</h2>}
-          {action}
-        </div>
-      )}
-      <div className="p-5">{children}</div>
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-xl font-semibold tracking-tight text-slate-100 sm:text-2xl">{title}</h1>
+        {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
+      </div>
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>
   );
 }
 
+export function Card({
+  title,
+  description,
+  children,
+  action,
+}: {
+  title?: string;
+  description?: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-slate-800 bg-slate-900/70 shadow-card">
+      {(title || action) && (
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-5 py-3.5">
+          <div className="min-w-0">
+            {title && <h2 className="text-sm font-semibold text-slate-100">{title}</h2>}
+            {description && <p className="mt-0.5 text-xs text-slate-400">{description}</p>}
+          </div>
+          {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+        </header>
+      )}
+      <div className="p-5">{children}</div>
+    </section>
+  );
+}
+
+/* ── Button ─────────────────────────────────────────────────────────────────
+   primary: brand-filled (contract white ≥4.5:1) · secondary: surface outlined
+   ghost: không viền cho hành động phụ trong table · danger: filled red —
+   cùng một ramp cho trigger → confirm → error (destructive contract). */
 export function Button({
   children,
   variant = "primary",
+  size = "md",
   className = "",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "danger" | "ghost";
+  size?: "sm" | "md";
 }) {
   const base =
-    "btn-press rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-50 disabled:cursor-not-allowed";
+    "btn-press inline-flex items-center justify-center gap-1.5 rounded-lg border font-medium " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 " +
+    "focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50";
+  const sizes = { sm: "px-2.5 py-1.5 text-xs", md: "px-3.5 py-2 text-sm" };
   const styles = {
-    primary: "bg-brand-500 text-white hover:bg-brand-400",
-    secondary: "border border-slate-700 text-slate-200 hover:bg-slate-800",
-    danger: "bg-red-900 text-red-100 hover:bg-red-800",
-    ghost: "text-slate-300 hover:bg-slate-800",
+    primary: "border-brand-700/60 bg-brand-600 text-white hover:bg-brand-500",
+    secondary: "border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800 hover:text-slate-100",
+    danger: "border-red-700/60 bg-red-700 text-white hover:bg-red-600",
+    ghost: "border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-100",
   };
   return (
-    <button className={`${base} ${styles[variant]} ${className}`} {...props}>
+    <button className={`${base} ${sizes[size]} ${styles[variant]} ${className}`} {...props}>
       {children}
     </button>
   );
 }
 
-export function Badge({ tone = "slate", children }: { tone?: "green" | "red" | "amber" | "slate"; children: ReactNode }) {
+/* ── Badge — semantic status, 3 lớp bg+border+text (không dùng màu đơn độc:
+   luôn kèm label chữ, CVD-safe). */
+export function Badge({
+  tone = "slate",
+  children,
+}: {
+  tone?: "green" | "red" | "amber" | "slate" | "brand";
+  children: ReactNode;
+}) {
   const tones = {
-    green: "bg-emerald-500/15 text-emerald-300",
-    red: "bg-red-500/15 text-red-300",
-    amber: "bg-amber-500/15 text-amber-300",
-    slate: "bg-slate-500/15 text-slate-300",
+    green: "border-emerald-500/30 bg-emerald-500/12 text-emerald-300",
+    red: "border-red-500/35 bg-red-500/12 text-red-300",
+    amber: "border-amber-500/30 bg-amber-500/12 text-amber-300",
+    slate: "border-slate-500/30 bg-slate-500/12 text-slate-300",
+    brand: "border-brand-500/35 bg-brand-500/12 text-brand-300",
   };
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${tones[tone]}`}
+    >
       {children}
     </span>
   );
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+export function Field({
+  label,
+  hint,
+  required,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-300">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-medium text-slate-300">
+        {label}
+        {required && <span className="ml-1 text-red-400" aria-hidden>*</span>}
+      </span>
       {children}
       {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
     </label>
@@ -95,35 +171,56 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 }
 
 export const inputCls =
-  "w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 transition-colors focus:border-brand-400 focus:outline-none focus:ring-1 focus:ring-brand-400";
+  "w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 " +
+  "placeholder:text-slate-600 transition-[border-color,box-shadow] " +
+  "focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25";
 
-export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
+export function EmptyState({
+  title,
+  hint,
+  icon,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  icon?: ReactNode;
+  action?: ReactNode;
+}) {
   return (
-    <div className="py-10 text-center">
-      <p className="text-sm font-medium text-slate-300">{title}</p>
-      {hint && <p className="mt-1 text-sm text-slate-500">{hint}</p>}
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-800 px-6 py-10 text-center">
+      {icon && (
+        <div className="mb-3 grid h-11 w-11 place-items-center rounded-full border border-slate-800 bg-slate-900 text-slate-500">
+          {icon}
+        </div>
+      )}
+      <p className="text-sm font-medium text-slate-200">{title}</p>
+      {hint && <p className="mt-1 max-w-sm text-sm text-slate-500">{hint}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );
 }
 
-/** Thanh tiến độ quota — tone đổi màu theo mức dùng (an toàn CVD: có label số). */
+/** Thanh tiến độ quota — tone đổi theo mức dùng; số % luôn hiển thị (CVD-safe). */
 export function ProgressBar({ value, max, tone }: { value: number; max: number; tone?: "auto" | "brand" }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
-  const color =
-    tone === "brand" || pct < 70 ? "bg-brand-500" : pct < 90 ? "bg-amber-400" : "bg-red-400";
+  const color = tone === "brand" || pct < 70 ? "bg-brand-500" : pct < 90 ? "bg-amber-400" : "bg-red-400";
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-800" role="progressbar"
-        aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+    <div className="flex items-center gap-2.5">
+      <div
+        className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-800"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div className={`anim-bar h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-slate-400">{pct}%</span>
+      <span className="w-9 text-right text-xs tabular-nums text-slate-400">{pct}%</span>
     </div>
   );
 }
 
-// ── Modal (entrance/exit + focus management + a11y) ──────────────────────────
+// ── Modal (entrance + focus trap + a11y) — surface "raised" ────────────────
 export function Modal({
   title,
   onClose,
@@ -141,7 +238,6 @@ export function Modal({
   useEffect(() => {
     previouslyFocused.current = document.activeElement as HTMLElement;
     const panel = panelRef.current;
-    // focus phần tử đầu tiên có thể focus trong panel
     const first = panel?.querySelector<HTMLElement>(
       "input, select, textarea, button, [tabindex]:not([tabindex='-1'])"
     );
@@ -153,10 +249,11 @@ export function Modal({
         onClose();
         return;
       }
-      // focus trap tối giản: Tab vòng trong panel
       if (e.key === "Tab" && panel) {
         const focusables = Array.from(
-          panel.querySelectorAll<HTMLElement>("input, select, textarea, button, [href], [tabindex]:not([tabindex='-1'])")
+          panel.querySelectorAll<HTMLElement>(
+            "input, select, textarea, button, [href], [tabindex]:not([tabindex='-1'])"
+          )
         ).filter((el) => !el.hasAttribute("disabled"));
         if (focusables.length === 0) return;
         const firstEl = focusables[0];
@@ -181,24 +278,24 @@ export function Modal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
-      <div className="anim-backdrop fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="anim-backdrop fixed inset-0 bg-slate-950/75 backdrop-blur-sm" onClick={onClose} aria-hidden />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`anim-modal relative w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-xl border border-slate-700 bg-slate-900 shadow-2xl outline-none`}
+        className={`anim-modal relative w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-2xl border border-slate-700 bg-surface-raised shadow-pop outline-none`}
       >
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-slate-100">{title}</h2>
+        <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <h2 className="truncate text-sm font-semibold text-slate-100">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Đóng"
-            className="btn-press rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-brand-400"
+            className="btn-press -mr-1 rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-brand-400"
           >
-            ✕
+            <X size={16} aria-hidden />
           </button>
-        </div>
+        </header>
         <div className="p-5">{children}</div>
       </div>
     </div>,
@@ -206,7 +303,7 @@ export function Modal({
   );
 }
 
-// ── useConfirm — thay cho window.confirm(), nhất quán + accessible ───────────
+// ── useConfirm — thay window.confirm(); cùng danger ramp end-to-end ────────
 export interface ConfirmOptions {
   title: string;
   message: string;
@@ -232,8 +329,8 @@ export function useConfirm() {
 
   const dialog = options ? (
     <Modal title={options.title} onClose={() => settle(false)}>
-      <p className="text-sm text-slate-300">{options.message}</p>
-      <div className="mt-5 flex justify-end gap-2">
+      <p className="text-sm leading-relaxed text-slate-300">{options.message}</p>
+      <div className="mt-6 flex justify-end gap-2">
         <Button variant="secondary" onClick={() => settle(false)}>
           Huỷ
         </Button>
