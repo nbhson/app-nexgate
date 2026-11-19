@@ -21,7 +21,7 @@ describe("GET /healthz", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("ok");
-    expect(body.version).toBe("1.0.0");
+    expect(body.version).toBe("1.1.0");
   });
 });
 

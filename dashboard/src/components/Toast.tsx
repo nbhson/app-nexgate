@@ -26,18 +26,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastCtx.Provider value={{ toast }}>
       {children}
-      <div className="fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
+      <div className="fixed inset-x-4 bottom-4 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:w-80">
         {toasts.map((t) => (
           <div
             key={t.id}
             role={t.type === "error" ? "alert" : "status"}
-            className={`rounded-lg border px-4 py-3 text-sm shadow-lg ${
+            className={`anim-toast flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${
               t.type === "error"
                 ? "border-red-700 bg-red-950 text-red-200"
                 : "border-emerald-700 bg-emerald-950 text-emerald-200"
             }`}
           >
-            {t.message}
+            <span>{t.message}</span>
+            <button
+              onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}
+              aria-label="Đóng thông báo"
+              className="btn-press shrink-0 rounded p-0.5 text-slate-400 hover:text-slate-100"
+            >
+              ✕
+            </button>
           </div>
         ))}
       </div>

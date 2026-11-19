@@ -5,6 +5,7 @@ import { verifyPassword } from "../../security/hash.js";
 import { getAdminByUsername } from "../../db/seed.js";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "../../config/constants.js";
 import { adminSessionSecret } from "../../config/env.js";
+import { recordAudit } from "../../services/audit.js";
 
 export const adminAuth = new Hono<{ Variables: { adminUser: string } }>();
 
@@ -70,10 +71,12 @@ adminAuth.post("/login", async (c) => {
     path: "/",
   });
 
+  recordAudit(username, "auth.login", undefined, c.req.header("x-forwarded-for")?.split(",")[0]?.trim());
   return c.json({ ok: true, username });
 });
 
 adminAuth.post("/logout", (c) => {
+  recordAudit(requireAdmin(c) ? c.get("adminUser") : undefined, "auth.logout");
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
   return c.json({ ok: true });
 });

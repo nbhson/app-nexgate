@@ -1,6 +1,6 @@
-import { env } from "../config/env.js";
 import type { ApiKey } from "../db/schema.js";
 import { getMonthlyUsage } from "./keys.js";
+import { defaultRateLimitRpm } from "./settings.js";
 
 interface Bucket {
   count: number;
@@ -46,7 +46,7 @@ export const rateLimiter = new RateLimiter();
 setInterval(() => rateLimiter.cleanup(), 5 * 60_000).unref();
 
 export function defaultRateLimit(): number {
-  return env.RATE_LIMIT_DEFAULT;
+  return defaultRateLimitRpm();
 }
 
 export interface LimitCheck {

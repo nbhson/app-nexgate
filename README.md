@@ -48,6 +48,22 @@ npm run build && npm start
 
 Gateway lắng nghe tại `http://localhost:3000`, Dashboard tại `/` (đường dẫn cũ `/admin` sẽ tự chuyển về `/`; `/admin/*` là namespace của Admin API), API `/v1` tương thích OpenAI. Ngoài ra có thể quản lý provider/key/model trực tiếp qua Dashboard thay vì sửa `.env`.
 
+## Tính năng v1.1
+
+**Sửa lỗi (quan trọng):**
+- ✅ **Usage của request stream giờ đã được ghi** — trước đây request streaming (mặc định của mọi coding agent) không được log, dẫn tới "dùng 2 model nhưng dashboard chỉ hiện 1" và quota không bị trừ khi stream.
+- ✅ **`logUsage` va chạm khoá chính** (`id: 0` hard-code) — từ request thứ 2 trở đi, mọi chat completion trả lỗi và mất log. Đây là nguyên nhân gốc của bug khuyết số liệu.
+- ✅ `/v1/models` và `/v1/embeddings` tôn trọng whitelist của key (trước đây lộ toàn bộ catalog và embeddings bỏ qua kiểm tra quyền).
+- ✅ Vượt quota trả `429 insufficient_quota` (theo chuẩn OpenAI) + 429 rate-limit kèm header `Retry-After`.
+
+**Tính năng mới:**
+- 🔑 **Phân quyền model/provider cho từng key**: chọn model bằng checkbox theo từng provider, hoặc cấp quyền *cả provider* (model thêm vào provider sau này tự được phép). UI tạo key + **sửa key** (trước đây chỉ tạo/xoá).
+- ⚙️ **Settings runtime** trong dashboard: rate limit mặc định, quota mặc định, upstream timeout, max body size, include_usage trên stream — áp dụng ngay, không cần restart; env chỉ còn là giá trị mặc định.
+- 💰 **Giá token theo model** (USD/1K in-out) → Usage hiển thị **chi phí ước tính** theo model.
+- 📊 Usage: breakdown **theo model**, filter theo key/model/status, phân trang, hiển thị tên key.
+- 🧾 **Audit log**: mọi thao tác admin (login, tạo/sửa/xoá/rotate key, provider, model, settings) được ghi vào `audit_logs` và xem được trong Settings.
+- 🎨 UI/UX: modal form thay form inline, `confirm()` native thay bằng dialog hợp chuẩn, skeleton loading, sidebar → drawer trên mobile, motion tokens + `prefers-reduced-motion` (WCAG 2.3.3).
+
 ## Config phía máy khách (client)
 
 Trong coding agent bất kỳ, cấu hình **custom provider**:

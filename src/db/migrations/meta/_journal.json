@@ -8,6 +8,13 @@
       "when": 1794927228203,
       "tag": "0000_broken_moon_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1795093949732,
+      "tag": "0001_modern_dexter_bennett",
+      "breakpoints": true
     }
   ]
 }

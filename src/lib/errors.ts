@@ -62,6 +62,7 @@ export class RateLimitError extends ApiError {
 
 export class QuotaError extends ApiError {
   constructor(message = "Monthly quota exceeded") {
-    super(401, "insufficient_quota", message);
+    // Chuẩn OpenAI: vượt quota → 429 insufficient_quota
+    super(429, "insufficient_quota", message);
   }
 }

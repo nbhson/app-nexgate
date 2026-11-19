@@ -51,9 +51,28 @@ Mục tiêu: an toàn, ổn định, sẵn sàng dùng hàng ngày.
 
 - [x] Test E2E đầy đủ (11 tests pass), tài liệu người dùng (README) hoàn chỉnh.
 - [ ] `/v1/responses` đầy đủ (tuỳ client).
-- [ ] Audit logs admin (schema đã có `audit_logs`, chưa ghi).
+- [x] Audit logs admin (ghi + API + UI xem log).
 - [ ] Hỗ trợ multi-provider hoạt động tốt + fallback khi 1 provider lỗi (đã có CRUD provider, chưa có auto-fallback request lỗi).
 - Tiêu chí: máy công ty bị chặn provider gốc vẫn dùng mượt qua gateway, có đầy đủ kiểm soát key và theo dõi usage.
+
+## v1.1 — Fix số liệu usage + phân quyền key + settings (hoàn thành 19/11)
+
+**Bug đã sửa (nguyên nhân "dùng 2 model chỉ display 1"):**
+- [x] `logUsage` truyền `id: 0` hard-code → từ row thứ 2 vi phạm UNIQUE constraint, request 500 và mất log.
+- [x] Stream request không ghi usage (không logUsage + không trừ quota) → bọc SSE, đọc usage từ chunk cuối (`stream_options.include_usage`), fallback ước lượng token theo ký tự, gắn cờ `usage_estimated`.
+- [x] `/v1/models` lộ toàn bộ catalog kể cả khi key có whitelist.
+- [x] `/v1/embeddings` bỏ qua whitelist + không giới hạn body size.
+- [x] Quota exceeded trả 401 → sửa thành 429 `insufficient_quota`; 429 rate-limit kèm `Retry-After`.
+- [x] `getUsageSummary` làm mất cột keyId; endpoint stub `/admin/keys/:id/usage` trả placeholder.
+
+**Tính năng:**
+- [x] Phân quyền theo key: `modelWhitelist` (model cụ thể) + `providerWhitelist` (cả provider, model thêm sau tự được phép); UI checkbox theo nhóm provider + sửa key (PATCH).
+- [x] Settings runtime trong DB (`settings` table) — rate limit/quota mặc định, upstream timeout, max body, include_usage; áp dụng ngay không restart.
+- [x] Giá token per model (cost in/out /1K) → usage breakdown theo model kèm chi phí USD.
+- [x] Audit log đầy đủ (login, CRUD key/provider/model, settings) + `/admin/audit` + tab Settings.
+- [x] UI/UX: modal + focus trap + Esc, useConfirm thay `confirm()`, skeleton loading, mobile drawer, motion tokens + reduced-motion (WCAG 2.3.3), usage filter/pagination/tên key, quota used %.
+- [x] Test: `gateway-behavior.test.ts` 15 case (stream usage, whitelist, quota 429, settings runtime, audit) — tổng 32/32 pass.
+- [x] Migration `0001_*`: `api_keys.provider_whitelist`, `models.cost_*`, bảng `settings`.
 
 ## Sau v1.0 (backlog — không có trong MVP)
 

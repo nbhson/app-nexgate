@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, blob } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, blob } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 // ── providers ───────────────────────────────────────────────────────────────
@@ -20,6 +20,8 @@ export const models = sqliteTable("models", {
   upstreamModelId: text("upstream_model_id").notNull(),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   maxTokens: integer("max_tokens"),
+  costInputPer1k: real("cost_input_per_1k"),  // USD / 1K input tokens (để ước tính chi phí)
+  costOutputPer1k: real("cost_output_per_1k"), // USD / 1K output tokens
   createdAt: integer("created_at").notNull().default(sql`(unixepoch() * 1000)`),
 });
 
@@ -31,6 +33,7 @@ export const apiKeys = sqliteTable("api_keys", {
   keyPrefix: text("key_prefix").notNull(),     // "sk-nex_abcd12"
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   modelWhitelist: text("model_whitelist").notNull().default("[]"), // JSON string[]
+  providerWhitelist: text("provider_whitelist").notNull().default("[]"), // JSON string[] of provider ids
   quotaTokens: integer("quota_tokens"),
   quotaResetDay: integer("quota_reset_day").notNull().default(1),
   rateLimitPerMin: integer("rate_limit_per_min"),
@@ -71,6 +74,13 @@ export const auditLogs = sqliteTable("audit_logs", {
   target: text("target"),
   ip: text("ip"),
   createdAt: integer("created_at").notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+// ── settings (runtime config, override env defaults) ─────────────────────────
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at").notNull().default(sql`(unixepoch() * 1000)`),
 });
 
 // ── Types (Drizzle inference) ────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 {
   "name": "nexgate",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "NexGate - OpenAI-compatible API Gateway",
   "private": true,
   "type": "module",

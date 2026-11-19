@@ -36,6 +36,9 @@ export const api = {
   patch<T>(path: string, body?: unknown) {
     return request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined });
   },
+  put<T>(path: string, body?: unknown) {
+    return request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined });
+  },
   del<T>(path: string) {
     return request<T>(path, { method: "DELETE" });
   },
@@ -59,6 +62,8 @@ export interface Model {
   upstreamModelId: string;
   enabled: boolean;
   maxTokens: number | null;
+  costInputPer1k: number | null;
+  costOutputPer1k: number | null;
   createdAt: number;
 }
 
@@ -67,12 +72,15 @@ export interface ApiKeyRecord {
   name: string;
   keyPrefix: string;
   enabled: boolean;
-  modelWhitelist: string;
+  modelWhitelist: string; // JSON string[]
+  providerWhitelist: string; // JSON string[]
   quotaTokens: number | null;
   quotaResetDay: number;
   rateLimitPerMin: number | null;
   createdAt: number;
   expiresAt: number | null;
+  quotaUsed?: number;
+  lastUsedAt?: number | null;
 }
 
 export interface UsageLog {
@@ -102,4 +110,43 @@ export interface TodayStats {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+}
+
+export interface ModelUsageStats {
+  modelId: string;
+  providerId: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUsd: number | null;
+}
+
+export interface SettingItem {
+  key: string;
+  kind: "int" | "bool";
+  label: string;
+  hint: string;
+  default: number | boolean;
+  value: number | boolean;
+  overridden: boolean;
+}
+
+export interface AuditLogRecord {
+  id: number;
+  username: string | null;
+  action: string;
+  target: string | null;
+  ip: string | null;
+  createdAt: number;
+}
+
+/** Parse whitelist JSON "[]" từ ApiKeyRecord. */
+export function parseWhitelist(json: string | undefined | null): string[] {
+  try {
+    const arr = JSON.parse(json ?? "[]");
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
 }

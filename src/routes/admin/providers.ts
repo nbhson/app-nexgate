@@ -6,6 +6,7 @@ import {
 } from "../../services/providers.js";
 import { testUpstream } from "../../providers/openai-compatible.js";
 import { encryptSecret } from "../../security/crypto.js";
+import { recordAudit } from "../../services/audit.js";
 
 type AdminVars = { Variables: { adminUser: string } };
 
@@ -15,6 +16,11 @@ const adminGuard: MiddlewareHandler<AdminVars> = async (c, next) => {
   }
   return next();
 };
+
+function audit(c: Context, action: string, target?: string) {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  recordAudit(c.get("adminUser") as string | undefined, action, target, ip);
+}
 
 export const adminProviders = new Hono<AdminVars>();
 adminProviders.use("*", adminGuard);
@@ -46,6 +52,7 @@ adminProviders.post("/", async (c) => {
     apiKeyEnc: encryptSecret(body.apiKey),
     enabled: body.enabled ?? true,
   });
+  audit(c, "provider.create", p.name);
   return c.json({ data: p }, 201);
 });
 
@@ -58,12 +65,15 @@ adminProviders.patch("/:id", async (c) => {
   if (body.enabled != null) upd.enabled = body.enabled;
   const updated = updateProvider(c.req.param("id"), upd);
   if (!updated) return c.json({ error: { code: "NOT_FOUND", message: "Provider không tìm thấy" } }, 404);
+  audit(c, "provider.update", updated.name);
   return c.json({ data: { ...updated, apiKeyEnc: "[encrypted]" } });
 });
 
 adminProviders.delete("/:id", (c) => {
+  const p = getProvider(c.req.param("id"));
   const ok = deleteProvider(c.req.param("id"));
   if (!ok) return c.json({ error: { code: "NOT_FOUND", message: "Provider không tìm thấy" } }, 404);
+  audit(c, "provider.delete", p?.name ?? c.req.param("id"));
   return c.json({ ok: true });
 });
 

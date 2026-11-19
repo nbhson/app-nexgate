@@ -1,12 +1,12 @@
-import { env } from "../config/env.js";
 import { upstreamUnavailable, upstreamTimeout, notFound } from "../lib/errors.js";
 import type { ChatCompletionRequest } from "../types/openai.js";
 import { logger } from "../lib/logger.js";
+import { upstreamTimeoutMs } from "../services/settings.js";
 
 /** Gọi upstream chat completions (non-stream). */
 export async function fetchCompletion(upstreamUrl: string, upstreamKey: string, body: ChatCompletionRequest) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.UPSTREAM_READ_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs());
 
   try {
     const res = await fetch(`${upstreamUrl}/chat/completions`, {

@@ -1,12 +1,40 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { apiKeys, usageLogs } from "../db/schema.js";
 import { sha256Hex } from "../security/crypto.js";
 import { generateClientKey, clientKeyPrefix } from "../security/hash.js";
 import { nanoid } from "nanoid";
+import { defaultQuotaTokens } from "./settings.js";
 import type { ApiKey, NewApiKey } from "../db/schema.js";
 
 export type { ApiKey };
+
+export function parseWhitelist(json: string | null | undefined): string[] {
+  try {
+    const arr = JSON.parse(json ?? "[]");
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Model này có dùng được với key không?
+ * - 2 whitelist đều trống → cho mọi model (mặc định cũ).
+ * - model nằm trong modelWhitelist → cho.
+ * - provider của model nằm trong providerWhitelist → cho (model mới thêm vào provider đó tự được phép).
+ */
+export function modelAllowedFor(
+  key: Pick<ApiKey, "modelWhitelist" | "providerWhitelist">,
+  model: { exposedId: string; providerId: string }
+): boolean {
+  const models = parseWhitelist(key.modelWhitelist);
+  const providers = parseWhitelist(key.providerWhitelist);
+  if (models.length === 0 && providers.length === 0) return true;
+  if (models.includes(model.exposedId)) return true;
+  if (providers.includes(model.providerId)) return true;
+  return false;
+}
 
 export function verifyApiKey(rawKey: string): ApiKey | null {
   const hash = sha256Hex(rawKey);
@@ -21,6 +49,7 @@ export function verifyApiKey(rawKey: string): ApiKey | null {
 export interface CreateKeyInput {
   name: string;
   modelWhitelist?: string[];
+  providerWhitelist?: string[];
   quotaTokens?: number;
   rateLimitPerMin?: number;
   expiresAt?: number;
@@ -29,6 +58,7 @@ export interface CreateKeyInput {
 export function createClientKey(input: CreateKeyInput): { key: string; record: ApiKey } {
   const rawKey = generateClientKey();
   const now = Date.now();
+  const defaultQuota = defaultQuotaTokens();
   const record: NewApiKey = {
     id: nanoid(16),
     name: input.name,
@@ -36,7 +66,8 @@ export function createClientKey(input: CreateKeyInput): { key: string; record: A
     keyPrefix: clientKeyPrefix(rawKey),
     enabled: true,
     modelWhitelist: JSON.stringify(input.modelWhitelist ?? []),
-    quotaTokens: input.quotaTokens,
+    providerWhitelist: JSON.stringify(input.providerWhitelist ?? []),
+    quotaTokens: input.quotaTokens ?? (defaultQuota > 0 ? defaultQuota : null),
     quotaResetDay: 1,
     rateLimitPerMin: input.rateLimitPerMin,
     createdAt: now,
@@ -97,4 +128,16 @@ export function getMonthlyUsage(keyId: string, resetDay: number): number {
     .all();
 
   return rows.reduce((sum, r) => sum + (r.total ?? 0), 0);
+}
+
+/** Thời điểm key dùng request gần nhất (ms), null nếu chưa dùng. */
+export function getLastUsedAt(keyId: string): number | null {
+  const row = db
+    .select({ ts: usageLogs.createdAt })
+    .from(usageLogs)
+    .where(eq(usageLogs.apiKeyId, keyId))
+    .orderBy(desc(usageLogs.createdAt))
+    .limit(1)
+    .get();
+  return row?.ts ?? null;
 }

@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Motion tokens (từ skill ui-animation — duration & easing + entrance/exit) ──
+   Chuẩn bắt buộc: không dùng duration/curve tự phát ngoài các token này. */
+:root {
+  --motion-duration-instant: 100ms; /* press/active, toggle */
+  --motion-duration-fast: 150ms;   /* hover, focus ring, tooltip */
+  --motion-duration-base: 240ms;   /* menu, dropdown, card */
+  --motion-duration-slow: 320ms;   /* modal, drawer */
+  --motion-duration-loop: 1200ms;  /* spinner, shimmer */
+
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-decelerate: cubic-bezier(0, 0, 0, 1);
+  --motion-ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  --motion-enter-distance: 16px;
+  --motion-enter-duration: 240ms;
+  --motion-exit-duration: 160ms;
+  --motion-stagger-step: 40ms;
+  --motion-stagger-cap: 300ms;
+}
+
 html {
   color-scheme: dark;
 }
@@ -20,4 +40,119 @@ body {
 }
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
+}
+
+/* ── Keyframes dùng token, không magic number ─────────────────────────────── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-enter-distance));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-enter-distance));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Class tiện dụng cho các surface */
+.anim-page {
+  animation: fade-up var(--motion-enter-duration) var(--motion-ease-decelerate) both;
+}
+.anim-modal {
+  animation: modal-in var(--motion-duration-slow) var(--motion-ease-standard) both;
+}
+.anim-backdrop {
+  animation: backdrop-in var(--motion-duration-fast) ease-out both;
+}
+.anim-drawer {
+  animation: drawer-in var(--motion-duration-slow) var(--motion-ease-decelerate) both;
+}
+.anim-toast {
+  animation: toast-in var(--motion-duration-base) var(--motion-ease-decelerate) both;
+}
+.anim-bar {
+  transform-origin: left;
+  animation: bar-grow var(--motion-duration-slow) var(--motion-ease-decelerate) both;
+}
+
+/* Stagger cho list/card — delay đặt inline theo index, cap 300ms */
+.anim-item {
+  animation: fade-up var(--motion-enter-duration) var(--motion-ease-decelerate) both;
+}
+
+/* Skeleton loading (>300ms wait) */
+.skeleton {
+  border-radius: 0.375rem;
+  background: linear-gradient(90deg, #1e293b 25%, #293548 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer var(--motion-duration-loop) var(--motion-ease-linear) infinite;
+}
+
+/* Press feedback cho button */
+.btn-press {
+  transition: transform var(--motion-duration-instant) var(--motion-ease-standard),
+    background-color var(--motion-duration-fast) var(--motion-ease-standard);
+}
+.btn-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ── Reduced motion (WCAG 2.3.3 / vestibular safety):
+   bỏ translate/loop, giữ fade ngắn — áp dụng toàn cục. ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton {
+    animation: none;
+    background: #1e293b;
+  }
+  .btn-press:active:not(:disabled) {
+    transform: none;
+  }
 }

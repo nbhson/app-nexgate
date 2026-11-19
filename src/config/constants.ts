@@ -1,5 +1,5 @@
 export const APP_NAME = "NexGate";
-export const APP_VERSION = "1.0.0";
+export const APP_VERSION = "1.1.0";
 
 export const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_SIZE_MB ?? "32", 10) * 1024 * 1024;
 
