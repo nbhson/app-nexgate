@@ -1,19 +1,27 @@
-import { useEffect, useState } from "react";
-import { Plus, Server, Zap } from "lucide-react";
+import { useRef, useState } from "react";
+import { Eye, EyeOff, Plus, Server, Zap } from "lucide-react";
 import { api, type Provider } from "../api/client";
 import {
-  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton, PageHeader,
+  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton,
+  PageHeader, RefreshControls, SyncErrorBanner, CopyButton,
 } from "../components/ui";
 import { useToast } from "../components/Toast";
-import { cn, errorMessage } from "../lib/utils";
-
+import { usePolling } from "../hooks/usePolling";
+import { errorMessage } from "../lib/utils";
 interface ProviderForm {
   name: string;
   baseUrl: string;
   apiKey: string;
 }
 
+interface TestResult {
+  ok: boolean;
+  ms: number;
+  error?: string;
+}
+
 const emptyForm: ProviderForm = { name: "", baseUrl: "", apiKey: "" };
+const POLL_MS = 15_000;
 
 export function Providers() {
   const { toast } = useToast();
@@ -23,33 +31,72 @@ export function Providers() {
   const [editing, setEditing] = useState<null | "new" | string>(null);
   const [form, setForm] = useState<ProviderForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [hasStoredKey, setHasStoredKey] = useState(false);
+  const [clearKey, setClearKey] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; ms: number }>>({});
+  const [testResult, setTestResult] = useState<Record<string, TestResult>>({});
+  const testResultRef = useRef(testResult);
+  const autoTestingRef = useRef(false);
 
-  async function load() {
-    setLoading(true);
+  function setTest(p: Provider, r: TestResult) {
+    testResultRef.current = { ...testResultRef.current, [p.id]: r };
+    setTestResult(testResultRef.current);
+  }
+
+  async function probe(p: Provider, notify: boolean) {
     try {
-      const r = await api.get<{ data: Provider[] }>("/admin/providers");
-      setProviders(r.data);
+      const r = await api.post<{ ok: boolean; latencyMs: number; error?: string }>(
+        `/admin/providers/${p.id}/test`
+      );
+      setTest(p, { ok: r.ok, ms: r.latencyMs, error: r.error });
+      if (notify) toast(r.ok ? "success" : "error", r.ok ? `Kết nối OK (${r.latencyMs}ms)` : `Thất bại: ${r.error ?? ""}`);
     } catch (err) {
-      toast("error", errorMessage(err));
-    } finally {
-      setLoading(false);
+      setTest(p, { ok: false, ms: 0, error: errorMessage(err) });
+      if (notify) toast("error", errorMessage(err));
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  /** Test nền lần lượt những provider chưa có kết quả — không spam toast. */
+  async function ensureTested(list: Provider[]) {
+    if (autoTestingRef.current) return;
+    autoTestingRef.current = true;
+    try {
+      for (const p of list) {
+        if (!p.enabled || testResultRef.current[p.id]) continue;
+        await probe(p, false);
+      }
+    } finally {
+      autoTestingRef.current = false;
+    }
+  }
+
+  const { refreshing, lastUpdated, error: syncError, failCount, refresh } = usePolling(
+    async ({ background }) => {
+      try {
+        const r = await api.get<{ data: Provider[] }>("/admin/providers");
+        setProviders(r.data);
+        void ensureTested(r.data);
+      } finally {
+        if (!background) setLoading(false);
+      }
+    },
+    POLL_MS
+  );
 
   function openCreate() {
     setForm(emptyForm);
+    setHasStoredKey(false);
+    setClearKey(false);
+    setShowKey(false);
     setEditing("new");
   }
 
   function openEdit(p: Provider) {
     setForm({ name: p.name, baseUrl: p.baseUrl, apiKey: "" });
+    setHasStoredKey(Boolean(p.apiKeyEnc));
+    setClearKey(false);
+    setShowKey(false);
     setEditing(p.id);
   }
 
@@ -63,11 +110,12 @@ export function Providers() {
       } else if (editing) {
         const body: Record<string, unknown> = { name: form.name, baseUrl: form.baseUrl };
         if (form.apiKey) body.apiKey = form.apiKey; // để trống = giữ key cũ
+        else if (clearKey) body.apiKey = null; // xoá key — provider không cần key
         await api.patch(`/admin/providers/${editing}`, body);
         toast("success", "Đã cập nhật provider");
       }
       setEditing(null);
-      load();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     } finally {
@@ -78,7 +126,11 @@ export function Providers() {
   async function onToggle(p: Provider) {
     try {
       await api.patch(`/admin/providers/${p.id}`, { enabled: !p.enabled });
-      load();
+      if (p.enabled) {
+        delete testResultRef.current[p.id];
+        setTestResult({ ...testResultRef.current });
+      }
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     }
@@ -95,7 +147,7 @@ export function Providers() {
     try {
       await api.del(`/admin/providers/${p.id}`);
       toast("success", "Đã xoá provider");
-      load();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     }
@@ -103,49 +155,81 @@ export function Providers() {
 
   async function onTest(p: Provider) {
     setTesting(p.id);
-    try {
-      const r = await api.post<{ ok: boolean; latencyMs: number; error?: string }>(`/admin/providers/${p.id}/test`);
-      setTestResult((t) => ({ ...t, [p.id]: { ok: r.ok, ms: r.latencyMs } }));
-      toast(r.ok ? "success" : "error", r.ok ? `Kết nối OK (${r.latencyMs}ms)` : `Thất bại: ${r.error ?? ""}`);
-    } catch (err) {
-      toast("error", errorMessage(err));
-    } finally {
-      setTesting(null);
-    }
+    await probe(p, true);
+    setTesting(null);
   }
 
   return (
     <div className="anim-page space-y-6">
       <PageHeader title="Providers" description="Các upstream provider mà gateway kết nối tới">
+        <RefreshControls refreshing={refreshing} lastUpdated={lastUpdated} onRefresh={refresh} />
         <Button onClick={openCreate}>
           <Plus size={16} aria-hidden /> Thêm provider
         </Button>
       </PageHeader>
+
+      <SyncErrorBanner error={syncError} failCount={failCount} intervalMs={POLL_MS} onRetry={refresh} />
 
       {editing && (
         <Modal title={editing === "new" ? "Thêm provider" : "Sửa provider"} onClose={() => setEditing(null)}>
           <form onSubmit={onSubmit} className="grid gap-4">
             <Field label="Tên">
               <input
-                className={inputCls} value={form.name} required placeholder="openai-default"
+                className={inputCls} value={form.name} required placeholder="ollama-local"
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
             </Field>
             <Field label="Base URL">
               <input
-                className={inputCls} value={form.baseUrl} required placeholder="https://api.openai.com/v1"
+                className={inputCls} value={form.baseUrl} required placeholder="http://localhost:11434/v1"
                 onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
               />
             </Field>
             <Field
               label={editing === "new" ? "API Key (upstream)" : "API Key mới (tuỳ chọn)"}
-              hint={editing === "new" ? "Được mã hoá AES-256-GCM khi lưu" : "Để trống nếu không đổi key"}
+              hint={
+                editing === "new"
+                  ? "Bỏ trống nếu local AI không đặt key. Có mã hoá AES-256-GCM khi lưu."
+                  : clearKey && !form.apiKey
+                    ? "Key đã lưu sẽ bị XOÁ khi bấm Lưu — provider sẽ gọi upstream không cần key"
+                    : hasStoredKey
+                      ? "Để trống nếu không đổi key"
+                      : "Provider này đang không dùng key — điền nếu upstream yêu cầu"
+              }
             >
-              <input
-                className={inputCls} type="password" value={form.apiKey} required={editing === "new"}
-                autoComplete="off"
-                onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-              />
+              <div className="relative">
+                <input
+                  className={`${inputCls} pr-[4.5rem]`}
+                  type={showKey ? "text" : "password"}
+                  value={form.apiKey}
+                  autoComplete="off"
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, apiKey: e.target.value }));
+                    if (e.target.value) setClearKey(false);
+                  }}
+                />
+                <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
+                  {form.apiKey && <CopyButton value={form.apiKey} label="API key" />}
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((v) => !v)}
+                    aria-label={showKey ? "Ẩn API key" : "Hiện API key"}
+                    aria-pressed={showKey}
+                    className="btn-press rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-brand-400"
+                  >
+                    {showKey ? <EyeOff size={14} aria-hidden /> : <Eye size={14} aria-hidden />}
+                  </button>
+                </div>
+              </div>
+              {editing !== "new" && hasStoredKey && (
+                <button
+                  type="button"
+                  onClick={() => setClearKey((v) => !v)}
+                  className="btn-press mt-1.5 self-start text-xs text-amber-400 hover:text-amber-300 focus-visible:ring-2 focus-visible:ring-brand-400"
+                >
+                  {clearKey ? "Huỷ việc xoá key" : "Xoá key đã lưu"}
+                </button>
+              )}
             </Field>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setEditing(null)}>Huỷ</Button>
@@ -186,11 +270,15 @@ export function Providers() {
                       <td className="py-3 pr-4 text-slate-400 max-w-xs truncate">{p.baseUrl}</td>
                       <td className="py-3 pr-4">
                         {t ? (
-                          <span className={cn("text-xs", t.ok ? "text-emerald-300" : "text-red-300")}>
-                            {t.ok ? `OK ${t.ms}ms` : "lỗi"}
-                          </span>
+                          <Badge tone={t.ok ? "green" : "red"}>
+                            <span title={t.ok ? `${t.ms}ms` : t.error}>
+                              {t.ok ? `OK ${t.ms}ms` : "Lỗi"}
+                            </span>
+                          </Badge>
                         ) : (
-                          <span className="text-xs text-slate-600">chưa test</span>
+                          <span className="text-xs text-slate-600">
+                            {p.enabled ? "đang kiểm tra..." : "—"}
+                          </span>
                         )}
                       </td>
                       <td className="py-3 pr-4">

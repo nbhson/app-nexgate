@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Boxes, Plus } from "lucide-react";
 import { api, type Model, type Provider } from "../api/client";
 import {
-  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton, PageHeader,
+  Card, Button, Badge, Field, inputCls, EmptyState, Modal, useConfirm, TableSkeleton,
+  PageHeader, RefreshControls, SyncErrorBanner, CopyButton, SearchInput,
 } from "../components/ui";
 import { useToast } from "../components/Toast";
+import { usePolling } from "../hooks/usePolling";
 import { errorMessage } from "../lib/utils";
 
 interface ModelForm {
@@ -17,6 +19,7 @@ interface ModelForm {
 }
 
 const emptyForm: ModelForm = { exposedId: "", providerId: "", upstreamModelId: "", maxTokens: "", costIn: "", costOut: "" };
+const POLL_MS = 15_000;
 
 export function Models() {
   const { toast } = useToast();
@@ -27,27 +30,23 @@ export function Models() {
   const [editing, setEditing] = useState<null | "new" | string>(null); // exposedId đang sửa
   const [form, setForm] = useState<ModelForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [q, setQ] = useState("");
 
-  async function loadAll() {
-    setLoading(true);
-    try {
-      const [m, p] = await Promise.all([
-        api.get<{ data: Model[] }>("/admin/models"),
-        api.get<{ data: Provider[] }>("/admin/providers"),
-      ]);
-      setModels(m.data);
-      setProviders(p.data);
-    } catch (err) {
-      toast("error", errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { refreshing, lastUpdated, error: syncError, failCount, refresh } = usePolling(
+    async ({ background }) => {
+      try {
+        const [m, p] = await Promise.all([
+          api.get<{ data: Model[] }>("/admin/models"),
+          api.get<{ data: Provider[] }>("/admin/providers"),
+        ]);
+        setModels(m.data);
+        setProviders(p.data);
+      } finally {
+        if (!background) setLoading(false);
+      }
+    },
+    POLL_MS
+  );
 
   function openCreate() {
     setForm(emptyForm);
@@ -85,7 +84,7 @@ export function Models() {
         toast("success", "Đã cập nhật model");
       }
       setEditing(null);
-      loadAll();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     } finally {
@@ -96,7 +95,7 @@ export function Models() {
   async function onToggle(m: Model) {
     try {
       await api.patch(`/admin/models/${encodeURIComponent(m.exposedId)}`, { enabled: !m.enabled });
-      loadAll();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     }
@@ -113,7 +112,7 @@ export function Models() {
     try {
       await api.del(`/admin/models/${encodeURIComponent(m.exposedId)}`);
       toast("success", "Đã xoá model");
-      loadAll();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     }
@@ -121,13 +120,28 @@ export function Models() {
 
   const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
 
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return models;
+    return models.filter(
+      (m) =>
+        m.exposedId.toLowerCase().includes(s) ||
+        m.upstreamModelId.toLowerCase().includes(s) ||
+        providerName(m.providerId).toLowerCase().includes(s)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models, providers, q]);
+
   return (
     <div className="anim-page space-y-6">
       <PageHeader title="Models" description="Catalog model expose cho client — kèm giới hạn & giá token">
+        <RefreshControls refreshing={refreshing} lastUpdated={lastUpdated} onRefresh={refresh} />
         <Button onClick={openCreate}>
           <Plus size={16} aria-hidden /> Thêm model
         </Button>
       </PageHeader>
+
+      <SyncErrorBanner error={syncError} failCount={failCount} intervalMs={POLL_MS} onRetry={refresh} />
 
       {editing && (
         <Modal title={editing === "new" ? "Thêm model" : `Sửa model — ${editing}`} onClose={() => setEditing(null)}>
@@ -189,7 +203,10 @@ export function Models() {
         </Modal>
       )}
 
-      <Card title={`Catalog (${models.length})`}>
+      <Card
+        title={filtered.length === models.length ? `Catalog (${models.length})` : `Catalog (${filtered.length}/${models.length})`}
+        action={models.length > 0 && <SearchInput value={q} onChange={setQ} placeholder="Tìm model, provider..." resultCount={filtered.length} />}
+      >
         {loading ? (
           <TableSkeleton rows={5} cols={4} />
         ) : models.length === 0 ? (
@@ -198,6 +215,13 @@ export function Models() {
             hint="Thêm model để client có thể dùng"
             icon={<Boxes size={18} aria-hidden />}
             action={<Button onClick={openCreate}><Plus size={16} aria-hidden /> Thêm model</Button>}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            title={`Không có model nào khớp "${q}"`}
+            hint="Thử từ khoá khác — tìm theo exposed ID, upstream ID hoặc tên provider"
+            icon={<Boxes size={18} aria-hidden />}
+            action={<Button variant="secondary" onClick={() => setQ("")}>Xoá lọc</Button>}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -213,9 +237,14 @@ export function Models() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {models.map((m) => (
+                {filtered.map((m) => (
                   <tr key={m.id} className="hover:bg-slate-800/40">
-                    <td className="py-3 pr-4 font-mono text-xs">{m.exposedId}</td>
+                    <td className="py-3 pr-4 font-mono text-xs text-slate-200">
+                      <div className="flex items-center gap-1">
+                        {m.exposedId}
+                        <CopyButton value={m.exposedId} />
+                      </div>
+                    </td>
                     <td className="py-3 pr-4 text-slate-300">{providerName(m.providerId)}</td>
                     <td className="py-3 pr-4 font-mono text-xs text-slate-400">
                       {m.upstreamModelId === m.exposedId ? "(trùng)" : m.upstreamModelId}

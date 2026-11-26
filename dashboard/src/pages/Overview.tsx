@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { api, type TodayStats, type TimeSeriesPoint, type UsageLog, type ModelUsageStats } from "../api/client";
-import { Card, Badge, Button, EmptyState, TableSkeleton, PageHeader } from "../components/ui";
-import { errorMessage, formatDate } from "../lib/utils";
+import { Card, Badge, Button, EmptyState, TableSkeleton, PageHeader, RefreshControls, SyncErrorBanner } from "../components/ui";
+import { usePolling } from "../hooks/usePolling";
+import { formatDate } from "../lib/utils";
+
+const POLL_MS = 15_000;
 
 export function Overview() {
   const [today, setToday] = useState<TodayStats | null>(null);
@@ -11,26 +14,33 @@ export function Overview() {
   const [recent, setRecent] = useState<UsageLog[]>([]);
   const [byModel, setByModel] = useState<ModelUsageStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const now = Date.now();
-    const from = now - 14 * 24 * 3600 * 1000;
-    // "hôm nay" tính theo local midnight — khớp getTodayStats phía server
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    const todayFrom = d.getTime();
+  const { refreshing, lastUpdated, error, failCount, refresh } = usePolling(
+    async ({ background }) => {
+      try {
+        const now = Date.now();
+        const from = now - 14 * 24 * 3600 * 1000;
+        // "hôm nay" tính theo local midnight — khớp getTodayStats phía server
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        const todayFrom = d.getTime();
 
-    Promise.all([
-      api.get<{ data: TodayStats }>("/admin/usage/today").then((r) => setToday(r.data)),
-      api.get<{ data: TimeSeriesPoint[] }>(`/admin/usage/timeseries?from=${from}&to=${now}`).then((r) => setSeries(r.data)),
-      api.get<{ data: UsageLog[] }>("/admin/usage/logs?limit=6").then((r) => setRecent(r.data)),
-      api.get<{ data: ModelUsageStats[] }>(`/admin/usage/models?from=${todayFrom}&to=${now}`).then((r) => setByModel(r.data)),
-    ])
-      .then(() => setError(""))
-      .catch((err) => setError(errorMessage(err)))
-      .finally(() => setLoading(false));
-  }, []);
+        const [t, s, rc, bm] = await Promise.all([
+          api.get<{ data: TodayStats }>("/admin/usage/today"),
+          api.get<{ data: TimeSeriesPoint[] }>(`/admin/usage/timeseries?from=${from}&to=${now}`),
+          api.get<{ data: UsageLog[] }>("/admin/usage/logs?limit=6"),
+          api.get<{ data: ModelUsageStats[] }>(`/admin/usage/models?from=${todayFrom}&to=${now}`),
+        ]);
+        setToday(t.data);
+        setSeries(s.data);
+        setRecent(rc.data);
+        setByModel(bm.data);
+      } finally {
+        if (!background) setLoading(false);
+      }
+    },
+    POLL_MS
+  );
 
   const maxTokens = Math.max(...series.map((p) => p.totalTokens), 1);
   const fmtCost = (usd: number | null) => (usd == null ? "—" : `$${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(2)}`);
@@ -38,6 +48,7 @@ export function Overview() {
   return (
     <div className="anim-page space-y-6">
       <PageHeader title="Overview" description="Tổng quan hoạt động gateway hôm nay">
+        <RefreshControls refreshing={refreshing} lastUpdated={lastUpdated} onRefresh={refresh} />
         <Link to="/keys">
           <Button>
             <Plus size={16} aria-hidden /> Tạo API key
@@ -45,15 +56,7 @@ export function Overview() {
         </Link>
       </PageHeader>
 
-      {error && (
-        <p
-          role="alert"
-          className="flex items-start gap-2 rounded-lg border border-red-500/35 bg-red-500/12 px-4 py-3 text-sm text-red-300"
-        >
-          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
-          {error}
-        </p>
-      )}
+      <SyncErrorBanner error={error} failCount={failCount} intervalMs={POLL_MS} onRetry={refresh} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Requests hôm nay" value={(today?.requests ?? 0).toLocaleString()} loading={loading} />

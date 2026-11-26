@@ -39,8 +39,9 @@ export function deleteProvider(id: string): boolean {
 export function getProviderDecrypted(id: string): (Omit<Provider, "apiKeyEnc"> & { apiKey: string }) | null {
   const p = getProvider(id);
   if (!p) return null;
+  const { apiKeyEnc: _enc, ...rest } = p;
+  if (!p.apiKeyEnc) return { ...rest, apiKey: "" }; // provider không dùng key (local AI)
   const apiKey = decryptSecret(p.apiKeyEnc);
   if (!apiKey) return null;
-  const { apiKeyEnc: _enc, ...rest } = p;
   return { ...rest, apiKey };
 }

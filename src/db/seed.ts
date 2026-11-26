@@ -20,15 +20,15 @@ export async function seed(): Promise<void> {
     logger.info("Seeded admin user: %s", env.ADMIN_USERNAME);
   }
 
-  // Upstream provider mặc định từ env (nếu có và chưa có provider nào)
+  // Upstream provider mặc định từ env (nếu có và chưa có provider nào) — key tuỳ chọn (local AI)
   const providerCount = db.select().from(providers).all().length;
-  if (providerCount === 0 && env.UPSTREAM_BASE_URL && env.UPSTREAM_API_KEY) {
+  if (providerCount === 0 && env.UPSTREAM_BASE_URL) {
     const now = Date.now();
     await db.insert(providers).values({
       id: nanoid(16),
       name: "default-provider",
       baseUrl: env.UPSTREAM_BASE_URL,
-      apiKeyEnc: encryptSecret(env.UPSTREAM_API_KEY),
+      apiKeyEnc: env.UPSTREAM_API_KEY ? encryptSecret(env.UPSTREAM_API_KEY) : "",
       enabled: true,
       createdAt: now,
       updatedAt: now,

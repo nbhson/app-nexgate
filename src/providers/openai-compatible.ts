@@ -3,6 +3,11 @@ import type { ChatCompletionRequest } from "../types/openai.js";
 import { logger } from "../lib/logger.js";
 import { upstreamTimeoutMs } from "../services/settings.js";
 
+/** Key rỗng (local AI không đặt key) → không gửi Authorization header. */
+function authHeader(key: string): Record<string, string> {
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
+
 /** Gọi upstream chat completions (non-stream). */
 export async function fetchCompletion(upstreamUrl: string, upstreamKey: string, body: ChatCompletionRequest) {
   const controller = new AbortController();
@@ -13,7 +18,7 @@ export async function fetchCompletion(upstreamUrl: string, upstreamKey: string, 
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${upstreamKey}`,
+        ...authHeader(upstreamKey),
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -42,7 +47,7 @@ export async function pipeStreaming(upstreamUrl: string, upstreamKey: string, bo
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${upstreamKey}`,
+      ...authHeader(upstreamKey),
     },
     body: JSON.stringify(body),
     signal: controller.signal,
@@ -65,7 +70,7 @@ export async function testUpstream(upstreamUrl: string, upstreamKey: string): Pr
 
   try {
     const res = await fetch(`${upstreamUrl.replace(/\/+$/, "")}/models`, {
-      headers: { Authorization: `Bearer ${upstreamKey}` },
+      headers: { ...authHeader(upstreamKey) },
       signal: controller.signal,
     });
     const latencyMs = Date.now() - start;

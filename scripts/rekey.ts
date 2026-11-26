@@ -34,6 +34,7 @@ let ok = 0;
 let failed = 0;
 
 for (const p of providers) {
+  if (!p.apiKeyEnc) continue; // provider không dùng key — bỏ qua
   const plain = decryptSecret(p.apiKeyEnc);
   if (plain === null) {
     logger.error({ provider: p.id }, "Không thể giải mã (key cũ có thể đã bị đổi sai)");

@@ -25,48 +25,55 @@ function audit(c: Context, action: string, target?: string) {
 export const adminProviders = new Hono<AdminVars>();
 adminProviders.use("*", adminGuard);
 
+/** Mask key thật: "[encrypted]" nếu có key, "" nếu provider không dùng key. */
+function maskKey<T extends { apiKeyEnc: string }>(p: T): T {
+  return { ...p, apiKeyEnc: p.apiKeyEnc ? "[encrypted]" : "" };
+}
+
 adminProviders.get("/", (c) => {
-  const all = listProviders().map((p) => ({ ...p, apiKeyEnc: "[encrypted]" }));
+  const all = listProviders().map(maskKey);
   return c.json({ data: all });
 });
 
 adminProviders.get("/:id", (c) => {
   const p = getProvider(c.req.param("id"));
   if (!p) return c.json({ error: { code: "NOT_FOUND", message: "Provider không tìm thấy" } }, 404);
-  return c.json({ data: { ...p, apiKeyEnc: "[encrypted]" } });
+  return c.json({ data: maskKey(p) });
 });
 
 adminProviders.post("/", async (c) => {
   const body = await c.req.json<{
     name: string;
     baseUrl: string;
-    apiKey: string;
+    apiKey?: string;
     enabled?: boolean;
   }>();
-  if (!body.name || !body.baseUrl || !body.apiKey) {
-    return c.json({ error: { code: "VALIDATION_ERROR", message: "name, baseUrl, apiKey bắt buộc" } }, 400);
+  if (!body.name || !body.baseUrl) {
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "name, baseUrl bắt buộc" } }, 400);
   }
+  const key = (body.apiKey ?? "").trim();
   const p = createProvider({
     name: body.name,
     baseUrl: body.baseUrl.replace(/\/+$/, ""),
-    apiKeyEnc: encryptSecret(body.apiKey),
+    apiKeyEnc: key ? encryptSecret(key) : "",
     enabled: body.enabled ?? true,
   });
   audit(c, "provider.create", p.name);
-  return c.json({ data: p }, 201);
+  return c.json({ data: maskKey(p) }, 201);
 });
 
 adminProviders.patch("/:id", async (c) => {
-  const body = await c.req.json<{ name?: string; baseUrl?: string; apiKey?: string; enabled?: boolean }>();
+  const body = await c.req.json<{ name?: string; baseUrl?: string; apiKey?: string | null; enabled?: boolean }>();
   const upd: Record<string, unknown> = {};
   if (body.name) upd.name = body.name;
   if (body.baseUrl) upd.baseUrl = body.baseUrl.replace(/\/+$/, "");
-  if (body.apiKey) upd.apiKeyEnc = encryptSecret(body.apiKey);
+  if (body.apiKey === null) upd.apiKeyEnc = ""; // xoá key — provider không dùng key
+  else if (body.apiKey) upd.apiKeyEnc = encryptSecret(body.apiKey);
   if (body.enabled != null) upd.enabled = body.enabled;
   const updated = updateProvider(c.req.param("id"), upd);
   if (!updated) return c.json({ error: { code: "NOT_FOUND", message: "Provider không tìm thấy" } }, 404);
   audit(c, "provider.update", updated.name);
-  return c.json({ data: { ...updated, apiKeyEnc: "[encrypted]" } });
+  return c.json({ data: maskKey(updated) });
 });
 
 adminProviders.delete("/:id", (c) => {

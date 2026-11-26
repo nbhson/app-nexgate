@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Activity, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   api,
   type ApiKeyRecord, type Model, type ModelUsageStats, type TimeSeriesPoint, type UsageLog,
 } from "../api/client";
-import { Card, Badge, EmptyState, inputCls, Button, TableSkeleton, PageHeader } from "../components/ui";
-import { errorMessage, formatDate } from "../lib/utils";
+import {
+  Card, Badge, EmptyState, inputCls, Button, TableSkeleton, PageHeader,
+  RefreshControls, SyncErrorBanner,
+} from "../components/ui";
+import { usePolling } from "../hooks/usePolling";
+import { formatDate } from "../lib/utils";
 
 type Range = "24h" | "7d" | "30d";
 const RANGE_MS: Record<Range, number> = { "24h": 24 * 3600_000, "7d": 7 * 24 * 3600_000, "30d": 30 * 24 * 3600_000 };
 const PAGE = 50;
+const POLL_MS = 20_000;
 
 export function Usage() {
   const [range, setRange] = useState<Range>("7d");
@@ -24,45 +29,46 @@ export function Usage() {
   const [fModel, setFModel] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const seqRef = useRef(0);
 
   useEffect(() => {
     api.get<{ data: ApiKeyRecord[] }>("/admin/keys").then((r) => setKeys(r.data)).catch(() => {});
     api.get<{ data: Model[] }>("/admin/models").then((r) => setModels(r.data)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const now = Date.now();
-    const from = now - RANGE_MS[range];
-    const gran = range === "24h" ? "hour" : "day";
-    const params = new URLSearchParams({ from: String(from), to: String(now), granularity: gran });
-    if (fKey) params.set("keyId", fKey);
-    if (fModel) params.set("modelId", fModel);
+  const { refreshing, lastUpdated, error, failCount, refresh } = usePolling(
+    async ({ background }) => {
+      const seq = ++seqRef.current;
+      const now = Date.now();
+      const from = now - RANGE_MS[range];
+      const gran = range === "24h" ? "hour" : "day";
+      const params = new URLSearchParams({ from: String(from), to: String(now), granularity: gran });
+      if (fKey) params.set("keyId", fKey);
+      if (fModel) params.set("modelId", fModel);
 
-    const logParams = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE) });
-    if (fKey) logParams.set("keyId", fKey);
-    if (fModel) logParams.set("modelId", fModel);
-    if (fStatus) logParams.set("status", fStatus);
+      const logParams = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE) });
+      if (fKey) logParams.set("keyId", fKey);
+      if (fModel) logParams.set("modelId", fModel);
+      if (fStatus) logParams.set("status", fStatus);
 
-    Promise.all([
-      api.get<{ data: TimeSeriesPoint[] }>(`/admin/usage/timeseries?${params}`),
-      api.get<{ data: ModelUsageStats[] }>(`/admin/usage/models?${params}`),
-      api.get<{ data: UsageLog[]; total: number }>(`/admin/usage/logs?${logParams}`),
-    ])
-      .then(([ts, bm, lg]) => {
-        if (cancelled) return;
+      try {
+        const [ts, bm, lg] = await Promise.all([
+          api.get<{ data: TimeSeriesPoint[] }>(`/admin/usage/timeseries?${params}`),
+          api.get<{ data: ModelUsageStats[] }>(`/admin/usage/models?${params}`),
+          api.get<{ data: UsageLog[]; total: number }>(`/admin/usage/logs?${logParams}`),
+        ]);
+        if (seq !== seqRef.current) return;
         setSeries(ts.data);
         setByModel(bm.data);
         setLogs(lg.data);
         setLogTotal(lg.total ?? lg.data.length);
-        setError("");
-      })
-      .catch((err) => !cancelled && setError(errorMessage(err)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
-  }, [range, fKey, fModel, fStatus, page]);
+      } finally {
+        if (seq === seqRef.current && !background) setLoading(false);
+      }
+    },
+    POLL_MS,
+    [range, fKey, fModel, fStatus, page]
+  );
 
   const keyName = useMemo(() => {
     const m = new Map(keys.map((k) => [k.id, k.name]));
@@ -76,6 +82,7 @@ export function Usage() {
   return (
     <div className="anim-page space-y-6">
       <PageHeader title="Usage" description="Lượng token, request và chi phí đi qua gateway">
+        <RefreshControls refreshing={refreshing} lastUpdated={lastUpdated} onRefresh={refresh} />
         <div className="flex gap-1 rounded-lg border border-slate-800 bg-slate-900/70 p-1" role="group" aria-label="Khoảng thời gian">
           {(["24h", "7d", "30d"] as Range[]).map((r) => (
             <button
@@ -92,15 +99,7 @@ export function Usage() {
         </div>
       </PageHeader>
 
-      {error && (
-        <p
-          role="alert"
-          className="flex items-start gap-2 rounded-lg border border-red-500/35 bg-red-500/12 px-4 py-3 text-sm text-red-300"
-        >
-          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
-          {error}
-        </p>
-      )}
+      <SyncErrorBanner error={error} failCount={failCount} intervalMs={POLL_MS} onRetry={refresh} />
 
       {/* Bộ lọc */}
       <div className="grid gap-3 sm:grid-cols-3">

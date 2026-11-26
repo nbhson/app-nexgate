@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { Check, Copy, RefreshCw, Search, WifiOff, X } from "lucide-react";
+import { useToast } from "./Toast";
 
 /**
  * Design system primitives — enterprise dark.
@@ -196,6 +197,153 @@ export function EmptyState({
       <p className="text-sm font-medium text-slate-200">{title}</p>
       {hint && <p className="mt-1 max-w-sm text-sm text-slate-500">{hint}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
+    </div>
+  );
+}
+
+/** Icon-button copy ra clipboard — đổi sang Check 1.5s + toast. */
+export function CopyButton({
+  value,
+  label,
+  className = "",
+}: {
+  value: string;
+  label?: string;
+  className?: string;
+}) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    },
+    []
+  );
+
+  function onCopy() {
+    navigator.clipboard.writeText(value).then(
+      () => {
+        setCopied(true);
+        toast("success", `Đã copy ${label ?? value}`);
+        if (timer.current) window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setCopied(false), 1500);
+      },
+      () => toast("error", "Trình duyệt chặn clipboard — hãy bôi đen và copy thủ công")
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      aria-label={copied ? "Đã copy" : `Copy ${label ?? value}`}
+      title="Copy"
+      className={`btn-press shrink-0 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-brand-400 ${className}`}
+    >
+      {copied ? (
+        <Check size={13} className="text-emerald-400" aria-hidden />
+      ) : (
+        <Copy size={13} aria-hidden />
+      )}
+    </button>
+  );
+}
+
+/** Cluster "Cập nhật lúc …" + nút Làm mới — đặt trong PageHeader của mọi page có polling. */
+export function RefreshControls({
+  refreshing,
+  lastUpdated,
+  onRefresh,
+}: {
+  refreshing: boolean;
+  lastUpdated: Date | null;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="hidden text-xs text-slate-500 sm:inline" aria-live="polite">
+        {lastUpdated ? `Cập nhật lúc ${lastUpdated.toLocaleTimeString()}` : "Đang tải..."}
+      </span>
+      <Button variant="secondary" size="sm" onClick={onRefresh} disabled={refreshing}>
+        <RefreshCw size={14} aria-hidden className={refreshing ? "animate-spin" : undefined} />
+        {refreshing ? "Đang làm mới" : "Làm mới"}
+      </Button>
+    </div>
+  );
+}
+
+/** Banner khi polling fail — dữ liệu cũ vẫn hiển thị, hook tự thử lại. */
+export function SyncErrorBanner({
+  error,
+  failCount,
+  intervalMs,
+  onRetry,
+}: {
+  error: string | null;
+  failCount: number;
+  intervalMs?: number;
+  onRetry: () => void;
+}) {
+  if (!error) return null;
+  const secs = intervalMs ? Math.round(intervalMs / 1000) : null;
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/12 px-4 py-3 text-sm text-amber-300"
+    >
+      <WifiOff size={15} className="shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1">
+        Không lấy được dữ liệu từ server — {error}.
+        {failCount > 1
+          ? ` Đã thử lại ${failCount - 1} lần${secs ? `, mỗi ${secs}s` : ""}.`
+          : secs
+            ? ` Sẽ tự thử lại sau ${secs}s.`
+            : ""}
+      </span>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        Thử lại ngay
+      </Button>
+    </div>
+  );
+}
+
+/** Ô search lọc bảng phía client — hiển thị số kết quả khi đang gõ. */
+export function SearchInput({
+  value,
+  onChange,
+  placeholder,
+  resultCount,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  resultCount?: number;
+}) {
+  return (
+    <div className="relative w-full sm:w-72">
+      <Search
+        size={14}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+        aria-hidden
+      />
+      <input
+        type="search"
+        className={`${inputCls} pl-9`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={placeholder}
+      />
+      {value && resultCount !== undefined && (
+        <span
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs tabular-nums text-slate-500"
+          aria-live="polite"
+        >
+          {resultCount}
+        </span>
+      )}
     </div>
   );
 }

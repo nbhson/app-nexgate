@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, Check, Copy, KeyRound, Plus } from "lucide-react";
 import {
   api, parseWhitelist,
@@ -7,8 +7,10 @@ import {
 import {
   Card, Button, Badge, Field, inputCls, EmptyState,
   Modal, useConfirm, ProgressBar, TableSkeleton, PageHeader,
+  RefreshControls, SyncErrorBanner, SearchInput,
 } from "../components/ui";
 import { useToast } from "../components/Toast";
+import { usePolling } from "../hooks/usePolling";
 import { errorMessage, formatDate } from "../lib/utils";
 
 interface KeyForm {
@@ -21,6 +23,7 @@ interface KeyForm {
 }
 
 const emptyForm: KeyForm = { name: "", quota: "", rpm: "", validDays: "", models: [], providers: [] };
+const POLL_MS = 20_000;
 
 export function ApiKeys() {
   const { toast } = useToast();
@@ -29,6 +32,7 @@ export function ApiKeys() {
   const [models, setModels] = useState<Model[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
 
   // modal: null = đóng, "new" = tạo, otherwise id đang sửa
   const [editing, setEditing] = useState<null | "new" | string>(null);
@@ -36,28 +40,23 @@ export function ApiKeys() {
   const [saving, setSaving] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const [r, m, p] = await Promise.all([
-        api.get<{ data: ApiKeyRecord[] }>("/admin/keys"),
-        api.get<{ data: Model[] }>("/admin/models"),
-        api.get<{ data: Provider[] }>("/admin/providers"),
-      ]);
-      setKeys(r.data);
-      setModels(m.data);
-      setProviders(p.data);
-    } catch (err) {
-      toast("error", errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { refreshing, lastUpdated, error: syncError, failCount, refresh } = usePolling(
+    async ({ background }) => {
+      try {
+        const [r, m, p] = await Promise.all([
+          api.get<{ data: ApiKeyRecord[] }>("/admin/keys"),
+          api.get<{ data: Model[] }>("/admin/models"),
+          api.get<{ data: Provider[] }>("/admin/providers"),
+        ]);
+        setKeys(r.data);
+        setModels(m.data);
+        setProviders(p.data);
+      } finally {
+        if (!background) setLoading(false);
+      }
+    },
+    POLL_MS
+  );
 
   const modelsByProvider = useMemo(() => {
     const map = new Map<string, Model[]>();
@@ -123,7 +122,7 @@ export function ApiKeys() {
         toast("success", "Đã cập nhật key");
       }
       setEditing(null);
-      load();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     } finally {
@@ -142,7 +141,7 @@ export function ApiKeys() {
     try {
       const r = await api.post<{ data: { newKey: string } }>(`/admin/keys/${id}/rotate`);
       setRevealedKey(r.data.newKey);
-      load();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     }
@@ -159,7 +158,7 @@ export function ApiKeys() {
     try {
       await api.del(`/admin/keys/${k.id}`);
       toast("success", "Đã thu hồi key");
-      load();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     }
@@ -168,7 +167,7 @@ export function ApiKeys() {
   async function onToggle(k: ApiKeyRecord) {
     try {
       await api.patch(`/admin/keys/${k.id}`, { enabled: !k.enabled });
-      load();
+      await refresh();
     } catch (err) {
       toast("error", errorMessage(err));
     }
@@ -193,16 +192,27 @@ export function ApiKeys() {
     );
   }
 
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return keys;
+    return keys.filter(
+      (k) => k.name.toLowerCase().includes(s) || k.keyPrefix.toLowerCase().includes(s)
+    );
+  }, [keys, q]);
+
   return (
     <div className="anim-page space-y-6">
       <PageHeader
         title="API Keys"
         description="Khoá API cấp cho máy client — kèm quyền model & provider"
       >
+        <RefreshControls refreshing={refreshing} lastUpdated={lastUpdated} onRefresh={refresh} />
         <Button onClick={openCreate}>
           <Plus size={16} aria-hidden /> Tạo key
         </Button>
       </PageHeader>
+
+      <SyncErrorBanner error={syncError} failCount={failCount} intervalMs={POLL_MS} onRetry={refresh} />
 
       {/* Key reveal modal */}
       {revealedKey && (
@@ -333,7 +343,10 @@ export function ApiKeys() {
         </Modal>
       )}
 
-      <Card title={`API Keys (${keys.length})`}>
+      <Card
+        title={filtered.length === keys.length ? `API Keys (${keys.length})` : `API Keys (${filtered.length}/${keys.length})`}
+        action={keys.length > 0 && <SearchInput value={q} onChange={setQ} placeholder="Tìm theo tên, key prefix..." resultCount={filtered.length} />}
+      >
         {loading ? (
           <TableSkeleton rows={4} cols={5} />
         ) : keys.length === 0 ? (
@@ -342,6 +355,13 @@ export function ApiKeys() {
             hint="Tạo key đầu tiên để client kết nối"
             icon={<KeyRound size={18} aria-hidden />}
             action={<Button onClick={openCreate}><Plus size={16} aria-hidden /> Tạo key</Button>}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            title={`Không có key nào khớp "${q}"`}
+            hint="Thử từ khoá khác — tìm theo tên hoặc prefix của key"
+            icon={<KeyRound size={18} aria-hidden />}
+            action={<Button variant="secondary" onClick={() => setQ("")}>Xoá lọc</Button>}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -358,7 +378,7 @@ export function ApiKeys() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {keys.map((k) => (
+                {filtered.map((k) => (
                   <tr key={k.id} className="hover:bg-slate-800/40">
                     <td className="py-3 pr-4 font-medium">
                       {k.name}
